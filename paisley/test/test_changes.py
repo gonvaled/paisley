@@ -359,3 +359,63 @@ class ConnectionLostTestCase(BaseTestCase, changes.ChangeListener):
     def testKill(self):
         self.wrapper.process.terminate()
         return self.waitForNextCycle()
+
+
+class CacheChangeReceiverTestCase(ChangeReceiverTestCase):
+
+    def setUp(self):
+        ChangeReceiverTestCase.setUp(self)
+
+        self.cache = client.MemoryCache()
+        self.db = client.CouchDB('localhost',
+            self.wrapper.port, cache=self.cache)
+        return self.db.createDB('test')
+
+    def testChanges(self):
+        notifier = changes.ChangeNotifier(self.db, 'test')
+        notifier.addCache(self.cache)
+        notifier.addListener(self)
+
+        d = notifier.start()
+
+        # create a doc
+        d.addCallback(lambda _: self.db.saveDoc('test', {
+            'key': 'value'
+        }))
+        d.addCallback(lambda r: setattr(self, 'firstid', r['id']))
+
+        # get it a first time; test that cache didn't have it but cached it
+        d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
+        d.addCallback(lambda r: setattr(self, 'first', r))
+        d.addCallback(lambda _: self.assertEquals(self.first['key'], 'value'))
+        d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 1))
+        d.addCallback(lambda _: self.assertEquals(self.cache.hits, 0))
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
+        
+        # get it a second time; test cache did have it
+        d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
+        d.addCallback(lambda r: self.assertEquals(r['key'], 'value'))
+        d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 2))
+        d.addCallback(lambda _: self.assertEquals(self.cache.hits, 1))
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
+
+        # change it; wait for the change to come in
+
+        def changeCallback(_):
+            self.first['key'] = 'othervalue'
+            d2 = self.waitForChange()
+            self.db.saveDoc('test', self.first, docId=self.firstid)
+            return d2
+        d.addCallback(changeCallback)
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 0))
+
+        # get it a second time; it was changed, so test cache did not have it
+        d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
+        d.addCallback(lambda r: self.assertEquals(r['key'], 'othervalue'))
+        d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 3))
+        d.addCallback(lambda _: self.assertEquals(self.cache.hits, 1))
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
+        
+        d.addCallback(lambda _: notifier.stop())
+        d.addCallback(lambda _: self.waitForNextCycle())
+        return d
