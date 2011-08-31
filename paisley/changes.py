@@ -66,7 +66,10 @@ class ChangeNotifier(object):
 
     def __init__(self, db, dbName=None, since=None):
         self._db = db
-        # if dbName is None, we assume that db is already bound
+        if self._db.bound == False and dbName == None:
+            raise Exception("When using non bound clients we need the database name")
+        if self._db.bound == True and dbName != None and dbName != self._db.dbName:
+            raise Exception("We are bound to database '%s', but you try to listen to changes from database '%s'" % (self._db.dbName, dbName))
         self._dbName = dbName 
 
         self._caches = []
@@ -102,14 +105,14 @@ class ChangeNotifier(object):
             self._since = info['update_seq']
 
         if self._since is None:
-            if self._dbName == None:
+            if self._db.bound:
                 d.addCallback(lambda _: self._db.infoDB())
             else:
                 d.addCallback(lambda _: self._db.infoDB(self._dbName))
             d.addCallback(setSince)
 
         def requestChanges():
-            if self._dbName == None:
+            if self._db.bound:
                 url = self._db.changesUrl(feed='continuous', since = self._since)
             else:
                 url = self._db.changesUrl(self._dbName, feed='continuous', since = self._since)

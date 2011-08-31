@@ -131,6 +131,8 @@ class CouchDB(object):
         self.username = username
         self.password =password
         self.url_template = "http://%s:%s%%s" % (self.host, self.port)
+        self.bound = False
+        self.dbName = None
         if dbName is not None:
             self.bindToDB(dbName)
         
@@ -173,7 +175,9 @@ class CouchDB(object):
             method = getattr(self, methname)
             newMethod = partial(method, dbName)
             setattr(self, methname, newMethod)
-
+        # We have bound to a database. Keep track
+        self.bound = True
+        self.dbName = dbName
 
     # Database operations
 
