@@ -4,6 +4,7 @@ Implements the CouchDB API for twisted.
 
 _Enhancements_
 
+* Support bound and non-bound databases in class ChangeNotifier
 * Added CouchDB authentication support (supply username and password args when instantiating)
 * Re-factored underlying HTTP transport to use Twisted Web Agent (will allow connection pooling in the future).
 * Re-factored code into formal Python package. API compatible with old package layout.

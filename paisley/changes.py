@@ -64,9 +64,10 @@ class ChangeListener:
 
 class ChangeNotifier(object):
 
-    def __init__(self, db, dbName, since=None):
+    def __init__(self, db, dbName=None, since=None):
         self._db = db
-        self._dbName = dbName
+        # if dbName is None, we assume that db is already bound
+        self._dbName = dbName 
 
         self._caches = []
         self._listeners = []
@@ -101,15 +102,17 @@ class ChangeNotifier(object):
             self._since = info['update_seq']
 
         if self._since is None:
-            d.addCallback(lambda _: self._db.infoDB(self._dbName))
+            if self._dbName == None:
+                d.addCallback(lambda _: self._db.infoDB())
+            else:
+                d.addCallback(lambda _: self._db.infoDB(self._dbName))
             d.addCallback(setSince)
 
         def requestChanges():
-            kwargs['feed'] = 'continuous'
-            kwargs['since'] = self._since
-            # FIXME: str should probably be unicode, as dbName can be
-            url = str(self._db.url_template %
-                '/%s/_changes?%s' % (self._dbName, urlencode(kwargs)))
+            if self._dbName == None:
+                url = self._db.changesUrl(feed='continuous', since = self._since)
+            else:
+                url = self._db.changesUrl(self._dbName, feed='continuous', since = self._since)
             return self._db.client.request('GET', url)
         d.addCallback(lambda _: requestChanges())
 
