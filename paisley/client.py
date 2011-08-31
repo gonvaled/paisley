@@ -155,7 +155,6 @@ class CouchDB(object):
                        port, 
                        dbName if dbName else '')
 
-
     def parseResult(self, result):
         """
         Parse JSON result from the DB.
@@ -167,7 +166,7 @@ class CouchDB(object):
         """
         Bind all operations asking for a DB name to the given DB.
         """
-        for methname in ["createDB", "deleteDB", "infoDB", "listDoc",
+        for methname in ["changesUrl", "createDB", "deleteDB", "infoDB", "listDoc",
                          "openDoc", "saveDoc", "deleteDoc", "openView",
                          "tempView"]:
             method = getattr(self, methname)
@@ -176,6 +175,12 @@ class CouchDB(object):
 
 
     # Database operations
+
+    def changesUrl(self, dbName, **kwargs):
+        # FIXME: str should probably be unicode, as dbName can be
+        url = str(self.url_template %
+                  '/%s/_changes?%s' % (dbName, urlencode(kwargs)))
+        return url
 
     def createDB(self, dbName):
         """
