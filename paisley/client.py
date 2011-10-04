@@ -131,8 +131,7 @@ class CouchDB(object):
         self.username = username
         self.password =password
         self.url_template = "http://%s:%s%%s" % (self.host, self.port)
-        if dbName is not None:
-            self.bindToDB(dbName)
+        self.dbName = dbName
         
         if disable_log:
             # since this is the db layer, and we generate a lot of logs,
@@ -162,32 +161,22 @@ class CouchDB(object):
         return json.loads(result)
 
 
-    def bindToDB(self, dbName):
-        """
-        Bind all operations asking for a DB name to the given DB.
-        """
-        for methname in ["changesUrl", "createDB", "deleteDB", "infoDB", "listDoc",
-                         "openDoc", "saveDoc", "deleteDoc", "openView",
-                         "tempView"]:
-            method = getattr(self, methname)
-            newMethod = partial(method, dbName)
-            setattr(self, methname, newMethod)
-
-
     # Database operations
 
-    def changesUrl(self, dbName, **kwargs):
+    def changesUrl(self, dbName=None, **kwargs):
+        if dbName == None : dbName = self.dbName
         # FIXME: str should probably be unicode, as dbName can be
         url = str(self.url_template %
                   '/%s/_changes?%s' % (dbName, urlencode(kwargs)))
         return url
 
-    def createDB(self, dbName):
+    def createDB(self, dbName=None):
         """
         Creates a new database on the server.
 
         @type  dbName: str
         """
+        if dbName == None : dbName = self.dbName
         # Responses: {u'ok': True}, 409 Conflict, 500 Internal Server Error,
         # 401 Unauthorized
         # 400 {"error":"illegal_database_name","reason":"Only lowercase
@@ -198,12 +187,13 @@ class CouchDB(object):
             ).addCallback(self.parseResult)
 
 
-    def deleteDB(self, dbName):
+    def deleteDB(self, dbName=None):
         """
         Deletes the database on the server.
 
         @type  dbName: str
         """
+        if dbName == None : dbName = self.dbName
         # Responses: {u'ok': True}, 404 Object Not Found
         return self.delete("/%s/" % (dbName,)
             ).addCallback(self.parseResult)
@@ -217,10 +207,11 @@ class CouchDB(object):
         return self.get("/_all_dbs", descr='listDB').addCallback(self.parseResult)
 
 
-    def infoDB(self, dbName):
+    def infoDB(self, dbName=None):
         """
         Returns info about the couchDB.
         """
+        if dbName == None : dbName = self.dbName
         # Responses: {u'update_seq': 0, u'db_name': u'mydb', u'doc_count': 0}
         # 404 Object Not Found
         return self.get("/%s/" % (dbName,), descr='infoDB'
@@ -229,10 +220,11 @@ class CouchDB(object):
 
     # Document operations
 
-    def listDoc(self, dbName, reverse=False, startKey=0, count=-1):
+    def listDoc(self, dbName=None, reverse=False, startKey=0, count=-1):
         """
         List all documents in a given database.
         """
+        if dbName == None : dbName = self.dbName
         # Responses: {u'rows': [{u'_rev': -1825937535, u'_id': u'mydoc'}],
         # u'view': u'_all_docs'}, 404 Object Not Found
         uri = "/%s/_all_docs" % (dbName,)
@@ -249,7 +241,7 @@ class CouchDB(object):
             ).addCallback(self.parseResult)
 
 
-    def openDoc(self, dbName, docId, revision=None, full=False, attachment=""):
+    def openDoc(self, docId, dbName=None, revision=None, full=False, attachment=""):
         """
         Open a document in a given database.
 
@@ -269,6 +261,7 @@ class CouchDB(object):
         # Responses: {u'_rev': -1825937535, u'_id': u'mydoc', ...}
         # 404 Object Not Found
 
+        if dbName == None : dbName = self.dbName
         # FIXME: remove these conversions and have our callers do them
         docId = unicode(docId)
         assert type(docId) is unicode, \
@@ -308,7 +301,7 @@ class CouchDB(object):
             document["_attachments"][name] = {"type": "base64", "data": data}
 
 
-    def saveDoc(self, dbName, body, docId=None):
+    def saveDoc(self, body, dbName=None, docId=None):
         """
         Save/create a document to/in a given database.
 
@@ -325,6 +318,7 @@ class CouchDB(object):
 
         # 404 Object not found (if database does not exist)
         # 409 Conflict, 500 Internal Server Error
+        if dbName == None : dbName = self.dbName
         if docId:
             # FIXME: remove these conversions and have our callers do them
             docId = unicode(docId)
@@ -340,7 +334,7 @@ class CouchDB(object):
         return d.addCallback(self.parseResult)
 
 
-    def deleteDoc(self, dbName, docId, revision):
+    def deleteDoc(self, docId, revision, dbName=None):
         """
         Delete a document on given database.
 
@@ -357,6 +351,7 @@ class CouchDB(object):
         # Responses: {u'_rev': 1469561101, u'ok': True}
         # 500 Internal Server Error
 
+        if dbName == None : dbName = self.dbName
         docId = unicode(docId)
         assert type(docId) is unicode, \
             'docId is %r instead of unicode' % (type(docId), )
@@ -375,12 +370,13 @@ class CouchDB(object):
 
     # View operations
 
-    def openView(self, dbName, docId, viewId, **kwargs):
+    def openView(self, docId, viewId, dbName=None, **kwargs):
         """
         Open a view of a document in a given database.
         """
         # Responses: 
         # 500 Internal Server Error (illegal database name)
+        if dbName == None : dbName = self.dbName
         def buildUri(dbName=dbName, docId=docId, viewId=viewId, kwargs=kwargs):
             return "/%s/_design/%s/_view/%s?%s" % (
                 dbName, quote(docId), viewId, urlencode(kwargs))            
@@ -420,10 +416,11 @@ class CouchDB(object):
             document["views"][name] = data
 
 
-    def tempView(self, dbName, view):
+    def tempView(self, view, dbName=None):
         """
         Make a temporary view on the server.
         """
+        if dbName == None : dbName = self.dbName
         d = self.post("/%s/_temp_view" % (dbName,), view, descr='tempView')
         return d.addCallback(self.parseResult)
 

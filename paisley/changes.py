@@ -102,17 +102,11 @@ class ChangeNotifier(object):
             self._since = info['update_seq']
 
         if self._since is None:
-            if self._dbName == None:
-                d.addCallback(lambda _: self._db.infoDB())
-            else:
-                d.addCallback(lambda _: self._db.infoDB(self._dbName))
+            d.addCallback(lambda _: self._db.infoDB(self._dbName))
             d.addCallback(setSince)
 
         def requestChanges():
-            if self._dbName == None:
-                url = self._db.changesUrl(feed='continuous', since = self._since)
-            else:
-                url = self._db.changesUrl(self._dbName, feed='continuous', since = self._since)
+            url = self._db.changesUrl(self._dbName, feed='continuous', since = self._since)
             return self._db.client.request('GET', url)
         d.addCallback(lambda _: requestChanges())
 

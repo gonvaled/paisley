@@ -232,7 +232,7 @@ class CouchDBTestCase(TestCase):
         """
         Test openDoc.
         """
-        d = self.client.openDoc("mydb", "mydoc")
+        d = self.client.openDoc("mydoc", "mydb")
         self.assertEquals(self.client.uri, "/mydb/mydoc")
         self.assertEquals(self.client.kwargs["method"], "GET")
         return self._checkParseDeferred(d)
@@ -242,7 +242,7 @@ class CouchDBTestCase(TestCase):
         """
         Test openDoc with a specific revision.
         """
-        d = self.client.openDoc("mydb", "mydoc", revision="ABC")
+        d = self.client.openDoc("mydoc", "mydb", revision="ABC")
         self.assertEquals(self.client.uri, "/mydb/mydoc?rev=ABC")
         self.assertEquals(self.client.kwargs["method"], "GET")
         return self._checkParseDeferred(d)
@@ -252,7 +252,7 @@ class CouchDBTestCase(TestCase):
         """
         Test openDoc with revision history.
         """
-        d = self.client.openDoc("mydb", "mydoc", full=True)
+        d = self.client.openDoc("mydoc", "mydb", full=True)
         self.assertEquals(self.client.uri, "/mydb/mydoc?full=true")
         self.assertEquals(self.client.kwargs["method"], "GET")
         return self._checkParseDeferred(d)
@@ -262,7 +262,7 @@ class CouchDBTestCase(TestCase):
         """
         Test openDoc for an attachment.
         """
-        d = self.client.openDoc("mydb", "mydoc", attachment="bar")
+        d = self.client.openDoc("mydoc", "mydb", attachment="bar")
         self.assertEquals(self.client.uri, "/mydb/mydoc/bar")
         self.assertEquals(self.client.kwargs["method"], "GET")
         # Data is transfered without parsing
@@ -274,7 +274,7 @@ class CouchDBTestCase(TestCase):
         """
         Test saveDoc, giving an explicit document ID.
         """
-        d = self.client.saveDoc("mydb", "mybody", "mydoc")
+        d = self.client.saveDoc("mybody", "mydb", "mydoc")
         self.assertEquals(self.client.uri, "/mydb/mydoc")
         self.assertEquals(self.client.kwargs["method"], "PUT")
         return self._checkParseDeferred(d)
@@ -284,7 +284,7 @@ class CouchDBTestCase(TestCase):
         """
         Test saveDoc without a document ID.
         """
-        d = self.client.saveDoc("mydb", "mybody")
+        d = self.client.saveDoc("mybody", "mydb")
         self.assertEquals(self.client.uri, "/mydb/")
         self.assertEquals(self.client.kwargs["method"], "POST")
         return self._checkParseDeferred(d)
@@ -294,7 +294,7 @@ class CouchDBTestCase(TestCase):
         """
         saveDoc should automatically serialize a structured document.
         """
-        d = self.client.saveDoc("mydb", {"value": "mybody", "_id": "foo"}, "mydoc")
+        d = self.client.saveDoc({"value": "mybody", "_id": "foo"}, "mydb", "mydoc")
         self.assertEquals(self.client.uri, "/mydb/mydoc")
         self.assertEquals(self.client.kwargs["method"], "PUT")
         return self._checkParseDeferred(d)
@@ -304,7 +304,7 @@ class CouchDBTestCase(TestCase):
         """
         Test deleteDoc.
         """
-        d = self.client.deleteDoc("mydb", "mydoc", "1234567890")
+        d = self.client.deleteDoc("mydoc", "1234567890", "mydb")
         self.assertEquals(self.client.uri, "/mydb/mydoc?rev=1234567890")
         self.assertEquals(self.client.kwargs["method"], "DELETE")
         return self._checkParseDeferred(d)
@@ -325,7 +325,7 @@ class CouchDBTestCase(TestCase):
         """
         Test openView.
         """
-        d = self.client.openView("mydb", "viewdoc", "myview")
+        d = self.client.openView("viewdoc", "myview", "mydb")
         self.assertEquals(self.client.uri, "/mydb/_design/viewdoc/_view/myview?")
         self.assertEquals(self.client.kwargs["method"], "GET")
         return self._checkParseDeferred(d)
@@ -335,9 +335,9 @@ class CouchDBTestCase(TestCase):
         """
         Test openView with query arguments.
         """
-        d = self.client.openView("mydb",
-                                 "viewdoc",
+        d = self.client.openView("viewdoc",
                                  "myview",
+                                 "mydb",
                                  startkey="foo",
                                  count=10)
         self.assertEquals(self.client.kwargs["method"], "GET")
@@ -356,9 +356,9 @@ class CouchDBTestCase(TestCase):
         """
         Test openView handles couchdb's strange requirements for keys arguments
         """
-        d = self.client.openView("mydb2",
-                                 "viewdoc2",
+        d = self.client.openView("viewdoc2",
                                  "myview2",
+                                 "mydb2",
                                  keys=[1,3,4, "hello, world", {1: 5}],
                                  count=5)
         self.assertEquals(self.client.kwargs["method"], "POST")
@@ -373,7 +373,7 @@ class CouchDBTestCase(TestCase):
         """
         Test tempView.
         """
-        d = self.client.tempView("mydb", "js code")
+        d = self.client.tempView("js code", "mydb")
         self.assertEquals(self.client.uri, "/mydb/_temp_view")
         self.assertEquals(self.client.kwargs["postdata"], "js code")
         self.assertEquals(self.client.kwargs["method"], "POST")
@@ -389,18 +389,8 @@ class CouchDBTestCase(TestCase):
         self.assertEquals(doc["views"], {"view1": "js code 1", "view2": "js code 2"})
 
 
-    def test_bindToDB(self):
-        """
-        Test bindToDB, calling a bind method afterwards.
-        """
-        self.client.bindToDB("mydb")
-        d = self.client.listDoc()
-        self.assertEquals(self.client.uri, "/mydb/_all_docs")
-        self.assertEquals(self.client.kwargs["method"], "GET")
-        return self._checkParseDeferred(d)
-
     def test_escapeId(self):
-        d = self.client.openDoc("mydb", "my doc with spaces")
+        d = self.client.openDoc("my doc with spaces", "mydb")
         self.assertEquals(self.client.uri, "/mydb/my%20doc%20with%20spaces")
         self.assertEquals(self.client.kwargs["method"], "GET")
         return self._checkParseDeferred(d)
@@ -471,7 +461,7 @@ class RealCouchDBTestCase(test_util.CouchDBTestCase):
             self.failUnless('test' in result)
             self.failUnless('_users' in result)
         d.addCallback(listCb)
-        d.addCallback(lambda _: self.db.saveDoc('test', {'number': 1}, '1'))
+        d.addCallback(lambda _: self.db.saveDoc({'number': 1}, 'test', '1'))
         def saveDoc(result):
             self.assertEquals(result[u'ok'], True)
             self.assertEquals(result[u'id'], u'1')
@@ -480,7 +470,7 @@ class RealCouchDBTestCase(test_util.CouchDBTestCase):
         d.addCallback(saveDoc)
         doc = {}
         self.db.addViews(doc, {'test': {'map': 'function (doc) { emit(doc.number, doc) }'}})
-        d.addCallback(lambda _: self.db.saveDoc('test', doc, '_design/test'))
+        d.addCallback(lambda _: self.db.saveDoc(doc, 'test', '_design/test'))
         def addViewCb(result):
             self.assertEquals(result[u'ok'], True)
         d.addCallback(addViewCb)
@@ -548,11 +538,12 @@ class UnicodeTestCase(test_util.CouchDBTestCase):
 
         d = defer.Deferred()
 
-        d.addCallback(lambda _: self.db.saveDoc('test', {
+        d.addCallback(lambda _: self.db.saveDoc({
             'name': name,
             name: 'name',
-            }))
-        d.addCallback(lambda r: self.db.openDoc('test', r['id']))
+            }, 'test'
+            ))
+        d.addCallback(lambda r: self.db.openDoc(r['id'], 'test'))
         def check(r):
             self.assertEquals(r['name'], name)
             self.assertEquals(r[name], u'name')
@@ -567,13 +558,13 @@ class UnicodeTestCase(test_util.CouchDBTestCase):
 
         d = defer.Deferred()
 
-        d.addCallback(lambda _: self.db.saveDoc('test', {
+        d.addCallback(lambda _: self.db.saveDoc({
             'name': 'name',
-            }, docId=docId))
+            }, 'test', docId=docId))
 
         def saveDocCb(r):
             self.assertEquals(r['id'], docId)
-            return self.db.openDoc('test', r['id'])
+            return self.db.openDoc(r['id'], 'test')
         d.addCallback(saveDocCb)
 
         def check(r):
@@ -584,7 +575,7 @@ class UnicodeTestCase(test_util.CouchDBTestCase):
             self.assertEquals(type(r[u'_rev']), unicode)
 
             # open again, with revision
-            return self.db.openDoc('test', r['_id'], revision=r['_rev'])
+            return self.db.openDoc(r['_id'], 'test', revision=r['_rev'])
         d.addCallback(check)
 
         def checkRevisioned(r):
@@ -597,7 +588,7 @@ class UnicodeTestCase(test_util.CouchDBTestCase):
         d.addCallback(checkRevisioned)
 
         d.addCallback(lambda r: self.db.deleteDoc(
-            'test', r[u'_id'], r[u'_rev']))
+            r[u'_id'], r[u'_rev'], 'test'))
 
         d.callback(None)
         return d
